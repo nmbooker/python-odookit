@@ -1,0 +1,17 @@
+version: "3.2"
+services:
+  odoo8:
+    image: odoo:8
+    depends_on:
+      - odoo8db
+    environment:
+      HOST: odoo8db
+      USER: odoo
+      PASSWORD: pgpassword
+    ports:
+      - "${ODOO8_PORT:?specify ODOO8_PORT}:8069"
+  odoo8db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: pgpassword
