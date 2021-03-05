@@ -10,6 +10,10 @@ import odoorpc
 @click.command()
 @click.option('--odoo-url', envvar='ODOOKIT_URL')
 def main(odoo_url):
+    """List the databases on the given URL.
+
+    BUG: A database named "odoo" might be created as a side effect
+    """
     uri = urlparse(odoo_url)
     odoo = odoorpc.ODOO(uri.hostname, port=uri.port)
     for database_name in odoo.db.list():
