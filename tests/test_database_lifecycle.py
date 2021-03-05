@@ -3,6 +3,11 @@ import os
 import subprocess
 
 
+# TODO consider managing lifecycle of Odoo containers in here, so we can
+#     guarantee what databases are available (making tests of odookit-databases
+#     more meaningful) and destroy the whole stack at the end of each test,
+#     making these truly unit tests.
+
 __TEST_NAME = datetime.datetime.now().isoformat()
 
 
