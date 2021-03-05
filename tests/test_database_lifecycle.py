@@ -2,6 +2,40 @@ import datetime
 import os
 import subprocess
 
+import pytest
+
+
+@pytest.fixture()
+def postgres_container():
+    create_process = subprocess.run(
+        ['docker', 'create', 'postgres:13'],
+        stdout=subprocess.PIPE,
+        check=True,
+    )
+    postgres_container_name = create_process.stdout.splitlines()[0]
+    try:
+        subprocess.run(['docker', 'start', postgres_container_name], check=True)
+        yield postgres_container_name
+        subprocess.run(['docker', 'stop', postgres_container_name], check=True)
+    finally:
+        subprocess.run(['docker', 'rm', postgres_container_name], check=True)
+
+
+@pytest.fixture()
+def odoo_container(postgres_container):
+    creation_process = subprocess.run(
+        ['docker', 'create', 'odoo:8'],
+        stdout=subprocess.PIPE,
+        check=True,
+    )
+    odoo_container_name = creation_process.stdout.splitlines()[0]
+    try:
+        subprocess.run(['docker', 'start', odoo_container_name], check=True)
+        yield odoo_container_name
+        subprocess.run(['docker', 'stop', odoo_container_name], check=True)
+    finally:
+        subprocess.run(['docker', 'rm', odoo_container_name], check=True)
+
 
 # TODO consider managing lifecycle of Odoo containers in here, so we can
 #     guarantee what databases are available (making tests of odookit-databases
