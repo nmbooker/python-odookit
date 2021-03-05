@@ -6,14 +6,12 @@ import subprocess
 __TEST_NAME = datetime.datetime.now().isoformat()
 
 
-def current_databases(url) -> frozenset:
-    list_databases_result = subprocess.run(
+def test_get_list_of_odoo_databases_exits_with_status_code_0():
+    process = subprocess.run(
         ['odookit-databases'],
-        env=merge_dicts(os.environ, {'ODOOKIT_URL': url}),
-        stdout=subprocess.PIPE,
-        check=True,
+        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_url()}),
     )
-    return frozenset(list_databases_result.stdout.splitlines())
+    assert process.returncode == 0
 
 
 def test_database_lifecycle():
@@ -39,6 +37,16 @@ def test_database_lifecycle():
     )
     assert current_databases(url=odoo_url()) == initial_databases, \
         'new database disappeared from database list again'
+
+
+def current_databases(url) -> frozenset:
+    list_databases_result = subprocess.run(
+        ['odookit-databases'],
+        env=merge_dicts(os.environ, {'ODOOKIT_URL': url}),
+        stdout=subprocess.PIPE,
+        check=True,
+    )
+    return frozenset(list_databases_result.stdout.splitlines())
 
 
 def alnum_only(string):
