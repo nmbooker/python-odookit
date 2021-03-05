@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+
+import os
+from urllib.parse import urlparse
+
+import click
+import odoorpc
+
+
+@click.command()
+@click.option('--odoo-url', envvar='ODOOKIT_URL')
+def main(odoo_url):
+    uri = urlparse(odoo_url)
+    odoo = odoorpc.ODOO(uri.hostname, port=uri.port)
+    for database_name in odoo.db.list():
+        click.echo(database_name)
+
+if __name__ == "__main__":
+    main()
