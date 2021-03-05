@@ -8,7 +8,7 @@ import odoorpc
 
 
 @click.command()
-@click.option('--odoo-url', envvar='ODOOKIT_URL')
+@click.option('--odoo-url', envvar='ODOOKIT_URL', required=True)
 def main(odoo_url):
     """List the databases on the given URL.
 
