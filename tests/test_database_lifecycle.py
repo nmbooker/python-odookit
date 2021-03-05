@@ -20,6 +20,8 @@ def postgres_container():
         subprocess.run(['docker', 'rm', postgres_container_name], check=True)
 
 
+# TODO wire up Odoo container to the Postgres container
+
 @pytest.fixture()
 def odoo_container(postgres_container):
     creation_process = subprocess.run(
@@ -36,32 +38,36 @@ def odoo_container(postgres_container):
         subprocess.run(['docker', 'rm', odoo_container_name], check=True)
 
 
-def test_get_list_of_odoo_databases_exits_with_status_code_0():
+def test_get_list_of_odoo_databases_exits_with_status_code_0(odoo_container):
     process = subprocess.run(
         ['odookit-databases'],
-        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_url()}),
+        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_url(odoo_container)}),
     )
     assert process.returncode == 0
 
 
-def test_database_lifecycle():
-    initial_databases = current_databases(url=odoo_url())
+def odoo_url(odoo_container_name):
+    return f"http://{odoo_container_name}:8069"
+
+
+def test_database_lifecycle(odoo_container):
+    initial_databases = current_databases(url=odoo_url(odoo_container))
     subprocess.run(
         [
             'odookit-create-database',
             '-p', 'opensesame',
-            database_name(),
+            'test1',
         ],
-        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_url()}),
+        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_url(odoo_container)}),
         check=True,
     )
     assert (
-        current_databases(url=odoo_url())
-        == initial_databases | {database_name()}
+        current_databases(url=odoo_url(odoo_container))
+        == initial_databases | {'test1'}
     ), 'new database now in databases list'
 
     subprocess.run(
-        ['odookit-drop-database', database_name()],
+        ['odookit-drop-database', 'test1'],
         env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_url()}),
         check=True,
     )
