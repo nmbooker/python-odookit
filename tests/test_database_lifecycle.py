@@ -10,9 +10,9 @@ def postgres_container():
         [
             'docker',
             'create',
-            'postgres:13',
             '-e', 'POSTGRES_USER',
             '-e', 'POSTGRES_PASSWORD',
+            'postgres:13',
         ],
         env=merge_dicts(
             os.environ,
@@ -38,15 +38,15 @@ def odoo_container(postgres_container):
         [
             'docker',
             'create',
-            'odoo:8',
-            '--expose', '8069',
+            '-p', '8069',
             '-e', 'HOST',
             '-e', 'USER',
             '-e', 'PASSWORD',
+            'odoo:8',
         ],
         env=merge_dicts(
             os.environ,
-            {'HOST': postgres_container, 'USER': 'odoo', 'PASSWORD': 'odoodbpassword'},
+            {'HOST': 'db', 'USER': 'odoo', 'PASSWORD': 'odoodbpassword'},
         ),
         stdout=subprocess.PIPE,
         check=True,
@@ -54,47 +54,48 @@ def odoo_container(postgres_container):
     odoo_container_name = creation_process.stdout.splitlines()[0]
     try:
         subprocess.run(['docker', 'start', odoo_container_name], check=True)
-        odoo_ip_address = the_only(
+        port_lines = (
             subprocess.run(
-                [
-                    'docker', 'container', 'inspect',
-                    '-f', '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}',
-                    odoo_container_name,
-                ],
+                ['docker', 'container', 'port', odoo_container_name],
                 stdout=subprocess.PIPE,
                 check=True,
             )
             .stdout
             .splitlines()
         )
-        yield odoo_ip_address.decode('utf-8')
+        odoo_port_line = the_only(
+            line
+            for line
+            in port_lines
+            if line.startswith(b'8069/tcp')
+        )
+        odoo_bind_address = odoo_port_line.decode('ascii').split('-> ')[1]
+        odoo_port = odoo_bind_address.split(':')[1]
+        yield f"http://localhost:{odoo_port}"
         subprocess.run(['docker', 'stop', odoo_container_name], check=True)
     finally:
         subprocess.run(['docker', 'rm', '-f', odoo_container_name], check=True)
 
 
 def test_get_list_of_odoo_databases_exits_with_status_code_0(odoo_container):
+    # import pdb ; pdb.set_trace()
     process = subprocess.run(
         ['odookit-databases'],
-        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_url(odoo_container)}),
+        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_container}),
     )
     assert process.returncode == 0
 
 
-def odoo_url(odoo_container_name):
-    return f"http://{odoo_container_name}:8069"
-
-
 @pytest.mark.skip('while debugging')
 def test_database_lifecycle(odoo_container):
-    initial_databases = current_databases(url=odoo_url(odoo_container))
+    initial_databases = current_databases(url=odoo_container)
     subprocess.run(
         [
             'odookit-create-database',
             '-p', 'opensesame',
             'test1',
         ],
-        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_url(odoo_container)}),
+        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_container}),
         check=True,
     )
     assert (
@@ -104,7 +105,7 @@ def test_database_lifecycle(odoo_container):
 
     subprocess.run(
         ['odookit-drop-database', 'test1'],
-        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_url()}),
+        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_container}),
         check=True,
     )
     assert current_databases(url=odoo_url()) == initial_databases, \
