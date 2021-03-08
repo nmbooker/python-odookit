@@ -54,6 +54,20 @@ def odoo_container(postgres_container):
     odoo_container_name = creation_process.stdout.splitlines()[0]
     try:
         subprocess.run(['docker', 'start', odoo_container_name], check=True)
+        subprocess.run(
+            [
+                'docker',
+                'exec',
+                '-i',
+                '-u', 'root',
+                odoo_container_name,
+                    'chown',
+                    '-R',
+                    'odoo:odoo',
+                    '/var/lib/odoo',
+            ],
+            check=True,
+        )
         port_lines = (
             subprocess.run(
                 ['docker', 'container', 'port', odoo_container_name],
