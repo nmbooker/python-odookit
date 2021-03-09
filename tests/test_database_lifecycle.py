@@ -1,7 +1,17 @@
 import os
 import subprocess
 
+# import attr
 import pytest
+
+
+# TODO use intelligent object for fixture rather than stringly typing
+# @attr.s()
+# class Container:
+#     id_ = attr.ib()
+
+#     def port_lines(self):
+#         pass
 
 
 @pytest.fixture()
@@ -26,6 +36,7 @@ def postgres_container():
         subprocess.run(['docker', 'start', postgres_container_name], check=True)
         yield postgres_container_name
         subprocess.run(['docker', 'stop', postgres_container_name], check=True)
+        subprocess.run(['docker', 'logs', postgres_container_name], check=True)
     finally:
         subprocess.run(['docker', 'rm', postgres_container_name], check=True)
 
@@ -46,7 +57,8 @@ def odoo_container(postgres_container):
         ],
         env=merge_dicts(
             os.environ,
-            {'HOST': 'db', 'USER': 'odoo', 'PASSWORD': 'odoodbpassword'},
+            # TODO try looking up IP address of postgres_container
+            {'HOST': postgres_container, 'USER': 'odoo', 'PASSWORD': 'odoodbpassword'},
         ),
         stdout=subprocess.PIPE,
         check=True,
@@ -87,12 +99,14 @@ def odoo_container(postgres_container):
         odoo_port = odoo_bind_address.split(':')[1]
         yield f"http://localhost:{odoo_port}"
         subprocess.run(['docker', 'stop', odoo_container_name], check=True)
+        subprocess.run(['docker', 'logs', odoo_container_name], check=True)
     finally:
         subprocess.run(['docker', 'rm', '-f', odoo_container_name], check=True)
 
 
 def test_get_list_of_odoo_databases_exits_with_status_code_0(odoo_container):
     # import pdb ; pdb.set_trace()
+    import pdb ; pdb.set_trace()
     process = subprocess.run(
         ['odookit-databases'],
         env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_container}),
@@ -100,30 +114,30 @@ def test_get_list_of_odoo_databases_exits_with_status_code_0(odoo_container):
     assert process.returncode == 0
 
 
-@pytest.mark.skip('while debugging')
-def test_database_lifecycle(odoo_container):
-    initial_databases = current_databases(url=odoo_container)
-    subprocess.run(
-        [
-            'odookit-create-database',
-            '-p', 'opensesame',
-            'test1',
-        ],
-        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_container}),
-        check=True,
-    )
-    assert (
-        current_databases(url=odoo_url(odoo_container))
-        == initial_databases | {'test1'}
-    ), 'new database now in databases list'
+# @pytest.mark.skip('while debugging')
+# def test_database_lifecycle(odoo_container):
+#     initial_databases = current_databases(url=odoo_container)
+#     subprocess.run(
+#         [
+#             'odookit-create-database',
+#             '-p', 'opensesame',
+#             'test1',
+#         ],
+#         env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_container}),
+#         check=True,
+#     )
+#     assert (
+#         current_databases(url=odoo_url(odoo_container))
+#         == initial_databases | {'test1'}
+#     ), 'new database now in databases list'
 
-    subprocess.run(
-        ['odookit-drop-database', 'test1'],
-        env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_container}),
-        check=True,
-    )
-    assert current_databases(url=odoo_url()) == initial_databases, \
-        'new database disappeared from database list again'
+#     subprocess.run(
+#         ['odookit-drop-database', 'test1'],
+#         env=merge_dicts(os.environ, {'ODOOKIT_URL': odoo_container}),
+#         check=True,
+#     )
+#     assert current_databases(url=odoo_url()) == initial_databases, \
+#         'new database disappeared from database list again'
 
 
 def current_databases(url) -> frozenset:
